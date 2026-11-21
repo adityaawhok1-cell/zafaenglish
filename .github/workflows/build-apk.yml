@@ -31,16 +31,43 @@ jobs:
           mkdir -p www
           cp index.html www/index.html
 
+      - name: Patch suara (pakai Text-to-Speech native Android)
+        run: |
+          python3 - <<'PY'
+          p = "www/index.html"
+          s = open(p, encoding="utf-8").read()
+          old = "function say(t){if(D.mute)return;"
+          new = ("function say(t){if(D.mute)return;"
+                 "if(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform()){"
+                 "try{const T=Capacitor.registerPlugin('TextToSpeech');"
+                 "T.stop().catch(()=>{});"
+                 "T.speak({text:t,lang:'en-US',rate:0.8,pitch:1.0,volume:1.0,category:'ambient'}).catch(()=>{});"
+                 "return}catch(e){}}")
+          assert old in s, "fungsi say() tidak ditemukan"
+          open(p, "w", encoding="utf-8").write(s.replace(old, new, 1))
+          PY
+
       - name: Install Capacitor
         run: |
           npm init -y
-          npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
+          npm install --legacy-peer-deps @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6 @capacitor-community/text-to-speech@5
 
       - name: Init Capacitor & tambah Android
         run: |
           npx cap init "Zafa English Adventure" com.zafa.englishadventure --web-dir www
           npx cap add android
           npx cap sync android
+
+      - name: Izinkan akses mesin TTS (Android 11+)
+        run: |
+          python3 - <<'PY'
+          p = "android/app/src/main/AndroidManifest.xml"
+          s = open(p, encoding="utf-8").read()
+          q = '<queries><intent><action android:name="android.intent.action.TTS_SERVICE"/></intent></queries>\n    <application'
+          if "TTS_SERVICE" not in s:
+              s = s.replace("<application", q, 1)
+          open(p, "w", encoding="utf-8").write(s)
+          PY
 
       - name: Build APK (debug)
         working-directory: android
