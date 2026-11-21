@@ -36,21 +36,29 @@ jobs:
           python3 - <<'PY'
           p = "www/index.html"
           s = open(p, encoding="utf-8").read()
-          old = "function say(t){if(D.mute)return;"
-          new = ("function say(t){if(D.mute)return;"
-                 "if(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform()){"
-                 "try{const T=Capacitor.registerPlugin('TextToSpeech');"
-                 "T.stop().catch(()=>{});"
-                 "T.speak({text:t,lang:'en-US',rate:0.8,pitch:1.0,volume:1.0,category:'ambient'}).catch(()=>{});"
-                 "return}catch(e){}}")
+          old = 'function say(t){if(D.mute)return;try{const s=speechSynthesis;'
+          new = """function say(t){if(D.mute)return;
+          var C=window.Capacitor;
+          if(C&&C.isNativePlatform&&C.isNativePlatform()){
+            try{
+              var T=C.registerPlugin('TextToSpeech');
+              if(!window.__ttsmsg){window.__ttsmsg=1;alert('Mode suara: NATIVE')}
+              T.speak({text:t,lang:'en-US',rate:0.8,pitch:1.0,volume:1.0}).catch(function(e){alert('TTS error: '+(e&&e.message?e.message:JSON.stringify(e)))});
+              return;
+            }catch(e){alert('TTS plugin error: '+e.message)}
+          }
+          try{const s=speechSynthesis;"""
           assert old in s, "fungsi say() tidak ditemukan"
-          open(p, "w", encoding="utf-8").write(s.replace(old, new, 1))
+          s = s.replace(old, new, 1)
+          open(p, "w", encoding="utf-8").write(s)
+          print("Patch suara berhasil dipasang")
           PY
+          grep -c "Mode suara: NATIVE" www/index.html
 
       - name: Install Capacitor
         run: |
           npm init -y
-          npm install --legacy-peer-deps @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6 @capacitor-community/text-to-speech@5
+          npm install --legacy-peer-deps @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6 @capacitor-community/text-to-speech@6
 
       - name: Init Capacitor & tambah Android
         run: |
